@@ -1,6 +1,7 @@
 const express = require('express');
 const dotenv = require('dotenv');
-const bcrypt = require('bcrypt')
+const bcrypt = require('bcrypt');
+const jwt = require('jsonwebtoken');
 
 const User = require('./src/models/user.model.js')
 const ConnectToDataBase = require('./src/modules/connect');
@@ -72,6 +73,60 @@ app.post('/user/singup', async (req, res) => {
     try {
         await user.save();
         return res.status(200).json(user)
+    } catch (error) {
+        console.log(error)
+
+        return res.status(500).json({ message: 'Error in the server' })
+    }
+})
+
+app.post('/user/singin', async (req, res) => {
+    const { email, password } = req.body;
+
+    if (!email) {
+        return res.status(422).json({ message: 'email is required' })
+    }
+
+    if (!password) {
+        return res.status(422).json({ message: 'password is required!' })
+    }
+
+    const CheckUser = await User.findOne({ email: email });
+
+    if (!CheckUser) {
+        return res.status(422).json({ message: 'This user is not exist!' })
+    }
+
+    const checkPassword = await bcrypt.compare(password, CheckUser.password);
+
+    if (!checkPassword) {
+        return res.status(404).json({ message: 'Incorrect password' })
+    }
+
+    try {
+        const secret = process.env.SECRET
+        const token = jwt.sign(
+            {
+                id: CheckUser._id
+            },
+            secret
+        )
+
+        const { name, cpf, tel } = CheckUser
+
+        const user = {
+            user: {
+                id: CheckUser._id,
+                name,
+                email,
+                cpf,
+                tel
+            },
+            token
+        }
+
+        return res.status(200).json(user)
+
     } catch (error) {
         console.log(error)
 
